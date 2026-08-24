@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85a58d7f2d1d07646909bbfc5fc8bef8, type: 3}
   m_Name: WorldGenerationSettings
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.WorldGenerationSettings
-  worldSizeX: 32
-  worldSizeZ: 32
-  worldHeight: 32
+  worldSizeX: 128
+  worldSizeZ: 128
+  worldHeight: 64
   chunkSize: 16
-  seed: 15
+  seed: 0
   noiseScale: 45
   octaves: 3
   persistence: 0.5

@@ -57,13 +57,17 @@ namespace CustomMinecraft.EditorTools
         private static BlockDefinition CreateBlock(
             string blockName, int id, Color color, float mineDuration, int minHeight, int maxHeight)
         {
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+            material.SetFloat("_Smoothness", 0f);
+            AssetDatabase.CreateAsset(material, $"{DataFolder}/{blockName}.mat");
+
             var block = ScriptableObject.CreateInstance<BlockDefinition>();
             AssetDatabase.CreateAsset(block, $"{DataFolder}/{blockName}.asset");
 
             var serialized = new SerializedObject(block);
             serialized.FindProperty("id").intValue = id;
             serialized.FindProperty("displayName").stringValue = blockName;
-            serialized.FindProperty("color").colorValue = color;
+            serialized.FindProperty("material").objectReferenceValue = material;
             serialized.FindProperty("mineDuration").floatValue = mineDuration;
             serialized.FindProperty("minHeight").intValue = minHeight;
             serialized.FindProperty("maxHeight").intValue = maxHeight;

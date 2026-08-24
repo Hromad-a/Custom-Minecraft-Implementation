@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.BlockDefinition
   id: 2
   displayName: Grass
-  color: {r: 0.36, g: 0.63, b: 0.27, a: 1}
+  material: {fileID: 2100000, guid: 34e8daab42bf0e845bd6c765d44fbd25, type: 2}
   mineDuration: 1.5
   minHeight: 17
   maxHeight: 34

@@ -12,7 +12,8 @@ namespace CustomMinecraft
         [Tooltip("Stable identifier stored in world data. Never reuse or renumber a shipped id.")]
         [SerializeField, Min(0)] private int id;
         [SerializeField] private string displayName;
-        [SerializeField] private Color color = Color.white;
+        [Tooltip("Rendering material for this block type; shared by every chunk.")]
+        [SerializeField] private Material material;
 
         [Tooltip("Seconds the mine button must be held to destroy this block.")]
         [SerializeField, Min(0.05f)] private float mineDuration = 1f;
@@ -27,7 +28,7 @@ namespace CustomMinecraft
 
         public int Id => id;
         public string DisplayName => displayName;
-        public Color Color => color;
+        public Material Material => material;
         public float MineDuration => mineDuration;
         public int MinHeight => minHeight;
         public int MaxHeight => maxHeight;

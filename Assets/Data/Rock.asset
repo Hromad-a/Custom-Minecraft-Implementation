@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.BlockDefinition
   id: 1
   displayName: Rock
-  color: {r: 0.42, g: 0.42, b: 0.45, a: 1}
+  material: {fileID: 2100000, guid: 583be5b91a43b094ea68cb8823fe3dbb, type: 2}
   mineDuration: 3
   minHeight: 0
   maxHeight: 20
