@@ -16,14 +16,15 @@ namespace CustomMinecraft.EditorTools
         [MenuItem("Tools/Custom Minecraft/Create Default World Assets")]
         public static void Create()
         {
+            EnsureFolder();
+            EnsureHighlightMaterial();
+
             if (AssetDatabase.LoadAssetAtPath<WorldGenerationSettings>(SettingsPath) != null)
             {
                 Debug.Log($"Default assets already exist at {DataFolder}; nothing created.");
                 Selection.activeObject = AssetDatabase.LoadAssetAtPath<WorldGenerationSettings>(SettingsPath);
                 return;
             }
-
-            EnsureFolder();
 
             BlockDefinition rock = CreateBlock("Rock", 1, new Color(0.42f, 0.42f, 0.45f),
                 mineDuration: 3f, minHeight: 0, maxHeight: 20);
@@ -52,6 +53,29 @@ namespace CustomMinecraft.EditorTools
         {
             if (!AssetDatabase.IsValidFolder(DataFolder))
                 AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        // Translucent white overlay for the block targeting highlight. Created even
+        // when the other assets already exist, so older setups can pick it up.
+        private static void EnsureHighlightMaterial()
+        {
+            const string path = DataFolder + "/Highlight.mat";
+            if (AssetDatabase.LoadAssetAtPath<Material>(path) != null)
+                return;
+
+            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+            {
+                color = new Color(1f, 1f, 1f, 0.3f),
+            };
+            material.SetFloat("_Surface", 1f);
+            material.SetOverrideTag("RenderType", "Transparent");
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            AssetDatabase.CreateAsset(material, path);
+            AssetDatabase.SaveAssets();
         }
 
         private static BlockDefinition CreateBlock(

@@ -51,6 +51,35 @@ namespace CustomMinecraft
             Regenerated?.Invoke();
         }
 
+        /// <summary>
+        /// Removes the block at the cell if the rules allow it. The bottom layer
+        /// (y == 0) is unbreakable, so digging stops at the world floor.
+        /// </summary>
+        public bool TryMine(Vector3Int cell)
+        {
+            if (Data == null || !Data.InBounds(cell.x, cell.y, cell.z) || cell.y == 0)
+                return false;
+            if (!Data[cell.x, cell.y, cell.z].IsPresent)
+                return false;
+            Data.SetPresence(cell.x, cell.y, cell.z, false);
+            return true;
+        }
+
+        /// <summary>
+        /// Places a block into an empty cell. The world bounds double as the build
+        /// ceiling: cells above the top do not exist, so placement there fails.
+        /// The block's type was fixed at generation time and is not touched.
+        /// </summary>
+        public bool TryPlace(Vector3Int cell)
+        {
+            if (Data == null || !Data.InBounds(cell.x, cell.y, cell.z))
+                return false;
+            if (Data[cell.x, cell.y, cell.z].IsPresent)
+                return false;
+            Data.SetPresence(cell.x, cell.y, cell.z, true);
+            return true;
+        }
+
         [ContextMenu("Export To JSON")]
         public void ExportToJson()
         {
