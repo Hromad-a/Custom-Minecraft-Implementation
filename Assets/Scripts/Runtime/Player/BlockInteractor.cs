@@ -18,6 +18,7 @@ namespace CustomMinecraft.Player
         [SerializeField, Min(1f)] private float reach = 6f;
 
         private WorldRenderer worldRenderer;
+        private VoxelPlayerController player;
         private Renderer faceHighlight;
         private Renderer blockHighlight;
         private Color highlightBaseColor;
@@ -30,6 +31,7 @@ namespace CustomMinecraft.Player
             if (world == null)
                 world = FindFirstObjectByType<World>();
             worldRenderer = world.GetComponent<WorldRenderer>();
+            player = GetComponentInParent<VoxelPlayerController>();
 
             faceHighlight = CreateHighlight(PrimitiveType.Quad, "FaceHighlight");
             blockHighlight = CreateHighlight(PrimitiveType.Cube, "BlockHighlight");
@@ -83,11 +85,22 @@ namespace CustomMinecraft.Player
             }
 
             if (mouse.rightButton.wasPressedThisFrame
-                && placeCell != Vector3Int.FloorToInt(transform.position)
+                && !PlacementOverlapsPlayer(placeCell)
                 && world.TryPlace(placeCell))
             {
                 worldRenderer.RebuildChunkAt(placeCell.x, placeCell.z);
             }
+        }
+
+        private bool PlacementOverlapsPlayer(Vector3Int cell)
+        {
+            if (player == null)
+            {
+                // Fly camera setup: no body, just avoid the camera's own cell.
+                return cell == Vector3Int.FloorToInt(transform.position);
+            }
+            var cellBounds = new Bounds(cell + Vector3.one * 0.5f, Vector3.one);
+            return player.WorldBounds.Intersects(cellBounds);
         }
 
         private void ShowMiningHighlight(Vector3Int hitCell, BlockDefinition definition)
