@@ -25,6 +25,10 @@ namespace CustomMinecraft.Player
         private Vector3Int currentTarget;
         private bool hasTarget;
         private float miningProgress;
+        private float deniedFlashTimer;
+
+        private static readonly Color DeniedColor = new(1f, 0.15f, 0.15f, 0.5f);
+        private const float DeniedFlashDuration = 0.35f;
 
         private void Awake()
         {
@@ -74,7 +78,13 @@ namespace CustomMinecraft.Player
             BlockDefinition definition =
                 world.Settings.BlockForId(world.Data[hitCell.x, hitCell.y, hitCell.z].BlockTypeId);
 
-            if (mouse.leftButton.isPressed && definition != null)
+            deniedFlashTimer -= Time.deltaTime;
+
+            if (mouse.leftButton.isPressed && !world.CanMine(hitCell))
+            {
+                ShowUnmineableHighlight(hitCell);
+            }
+            else if (mouse.leftButton.isPressed && definition != null)
             {
                 ShowMiningHighlight(hitCell, definition);
             }
@@ -84,11 +94,12 @@ namespace CustomMinecraft.Player
                 ShowHoverHighlight(hitCell, faceNormal);
             }
 
-            if (mouse.rightButton.wasPressedThisFrame
-                && !PlacementOverlapsPlayer(placeCell)
-                && world.TryPlace(placeCell))
+            if (mouse.rightButton.wasPressedThisFrame)
             {
-                worldRenderer.RebuildChunkAt(placeCell.x, placeCell.z);
+                if (placeCell.y >= world.Data.sizeY)
+                    deniedFlashTimer = DeniedFlashDuration;
+                else if (!PlacementOverlapsPlayer(placeCell) && world.TryPlace(placeCell))
+                    worldRenderer.RebuildChunkAt(placeCell.x, placeCell.z);
             }
         }
 
@@ -120,8 +131,25 @@ namespace CustomMinecraft.Player
             faceHighlight.gameObject.SetActive(false);
         }
 
+        // Held on an unbreakable block (the world floor): pulse the block red.
+        private void ShowUnmineableHighlight(Vector3Int hitCell)
+        {
+            miningProgress = 0f;
+            Color color = DeniedColor;
+            color.a = Mathf.Lerp(0.2f, 0.6f, Mathf.PingPong(Time.time * 4f, 1f));
+            blockHighlight.material.color = color;
+            blockHighlight.transform.position = hitCell + Vector3.one * 0.5f;
+            blockHighlight.gameObject.SetActive(true);
+            faceHighlight.gameObject.SetActive(false);
+        }
+
         private void ShowHoverHighlight(Vector3Int hitCell, Vector3Int faceNormal)
         {
+            // A denied placement (against the world ceiling) flashes the face red once.
+            Color color = deniedFlashTimer > 0f
+                ? Color.Lerp(highlightBaseColor, DeniedColor, deniedFlashTimer / DeniedFlashDuration)
+                : highlightBaseColor;
+            faceHighlight.material.color = color;
             faceHighlight.transform.position = hitCell + Vector3.one * 0.5f + (Vector3)faceNormal * 0.505f;
             faceHighlight.transform.rotation = Quaternion.LookRotation(-(Vector3)faceNormal);
             faceHighlight.gameObject.SetActive(true);

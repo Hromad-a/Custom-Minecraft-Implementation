@@ -55,11 +55,15 @@ namespace CustomMinecraft
         /// Removes the block at the cell if the rules allow it. The bottom layer
         /// (y == 0) is unbreakable, so digging stops at the world floor.
         /// </summary>
+        public bool CanMine(Vector3Int cell) =>
+            Data != null
+            && Data.InBounds(cell.x, cell.y, cell.z)
+            && cell.y > 0
+            && Data[cell.x, cell.y, cell.z].IsPresent;
+
         public bool TryMine(Vector3Int cell)
         {
-            if (Data == null || !Data.InBounds(cell.x, cell.y, cell.z) || cell.y == 0)
-                return false;
-            if (!Data[cell.x, cell.y, cell.z].IsPresent)
+            if (!CanMine(cell))
                 return false;
             Data.SetPresence(cell.x, cell.y, cell.z, false);
             return true;

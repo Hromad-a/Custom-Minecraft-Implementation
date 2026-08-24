@@ -18,10 +18,10 @@ namespace CustomMinecraft.Player
         [Header("Body")]
         [SerializeField, Min(0.1f)] private float width = 0.6f;
         [SerializeField, Min(0.1f)] private float height = 1.8f;
-        [SerializeField, Min(0f)] private float eyeHeight = 1.62f;
 
         [Header("Movement")]
         [SerializeField, Min(0.1f)] private float walkSpeed = 5f;
+        [SerializeField, Min(1f)] private float sprintMultiplier = 1.6f;
         [SerializeField, Min(0f)] private float jumpHeight = 1.2f;
         [SerializeField] private float gravity = -25f;
         [SerializeField, Min(1f)] private float maxFallSpeed = 30f;
@@ -102,7 +102,8 @@ namespace CustomMinecraft.Player
             if (keyboard.dKey.isPressed) input += transform.right;
             if (keyboard.aKey.isPressed) input -= transform.right;
             input.y = 0f;
-            input = input.normalized * walkSpeed;
+            float speed = walkSpeed * (keyboard.leftShiftKey.isPressed ? sprintMultiplier : 1f);
+            input = input.normalized * speed;
             velocity.x = input.x;
             velocity.z = input.z;
 
