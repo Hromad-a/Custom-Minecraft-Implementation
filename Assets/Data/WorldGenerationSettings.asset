@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85a58d7f2d1d07646909bbfc5fc8bef8, type: 3}
+  m_Name: WorldGenerationSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.WorldGenerationSettings
+  worldSizeX: 32
+  worldSizeZ: 32
+  worldHeight: 32
+  chunkSize: 16
+  seed: 15
+  noiseScale: 45
+  octaves: 3
+  persistence: 0.5
+  amplitude: 20
+  baseHeight: 14
+  blocks:
+  - {fileID: 11400000, guid: 104f55eaf2b2a1140b80ac2c8a718323, type: 2}
+  - {fileID: 11400000, guid: e7ffd9db9f14bbe47a562e182bc97f9b, type: 2}
+  - {fileID: 11400000, guid: 6ec9ebc8984605d4aa1431469de03890, type: 2}
