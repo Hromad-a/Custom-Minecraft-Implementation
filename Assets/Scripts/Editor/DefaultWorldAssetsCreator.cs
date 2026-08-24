@@ -19,8 +19,10 @@ namespace CustomMinecraft.EditorTools
             EnsureFolder();
             EnsureHighlightMaterial();
 
-            if (AssetDatabase.LoadAssetAtPath<WorldGenerationSettings>(SettingsPath) != null)
+            var existingSettings = AssetDatabase.LoadAssetAtPath<WorldGenerationSettings>(SettingsPath);
+            if (existingSettings != null)
             {
+                EnsureReliefLayer(existingSettings);
                 Debug.Log($"Default assets already exist at {DataFolder}; nothing created.");
                 Selection.activeObject = AssetDatabase.LoadAssetAtPath<WorldGenerationSettings>(SettingsPath);
                 return;
@@ -43,6 +45,7 @@ namespace CustomMinecraft.EditorTools
             blocks.GetArrayElementAtIndex(1).objectReferenceValue = grass;
             blocks.GetArrayElementAtIndex(2).objectReferenceValue = snow;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            EnsureReliefLayer(settings);
 
             AssetDatabase.SaveAssets();
             Selection.activeObject = settings;
@@ -53,6 +56,33 @@ namespace CustomMinecraft.EditorTools
         {
             if (!AssetDatabase.IsValidFolder(DataFolder))
                 AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        // Creates the default relief noise layer and wires it into the settings if
+        // its layer list is empty. Runs for fresh and existing settings alike, so
+        // older setups migrate to the layered generation automatically.
+        private static void EnsureReliefLayer(WorldGenerationSettings settings)
+        {
+            const string layerPath = DataFolder + "/ReliefLayer.asset";
+            var layer = AssetDatabase.LoadAssetAtPath<NoiseLayerDefinition>(layerPath);
+            if (layer == null)
+            {
+                layer = ScriptableObject.CreateInstance<NoiseLayerDefinition>();
+                AssetDatabase.CreateAsset(layer, layerPath);
+                var serializedLayer = new SerializedObject(layer);
+                serializedLayer.FindProperty("salt").intValue = 1;
+                serializedLayer.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            if (settings.NoiseLayers.Count == 0)
+            {
+                var serializedSettings = new SerializedObject(settings);
+                SerializedProperty layers = serializedSettings.FindProperty("noiseLayers");
+                layers.arraySize = 1;
+                layers.GetArrayElementAtIndex(0).objectReferenceValue = layer;
+                serializedSettings.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssets();
+            }
         }
 
         // Translucent white overlay for the block targeting highlight. Created even

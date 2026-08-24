@@ -19,18 +19,13 @@ namespace CustomMinecraft
         [Tooltip("Horizontal size of one render chunk, used from Step 2 on.")]
         [SerializeField, Min(1)] private int chunkSize = 16;
 
-        [Header("Terrain noise")]
+        [Header("Terrain")]
         [Tooltip("0 = random seed on every regeneration; any other value reproduces the exact same world.")]
         [SerializeField] private int seed;
-        [Tooltip("Horizontal zoom of the noise. Larger = wider, smoother hills.")]
-        [SerializeField, Min(0.01f)] private float noiseScale = 45f;
-        [SerializeField, Range(1, 8)] private int octaves = 3;
-        [Tooltip("How strongly finer octaves show through.")]
-        [SerializeField, Range(0.05f, 1f)] private float persistence = 0.5f;
-        [Tooltip("Vertical swing of the terrain in blocks, applied on top of the base height.")]
-        [SerializeField, Min(0f)] private float amplitude = 20f;
-        [Tooltip("Column height where the noise value is at its minimum.")]
-        [SerializeField, Min(0)] private int baseHeight = 14;
+        [Tooltip("Column height where the accumulated relief of all layers is zero.")]
+        [SerializeField, Min(0)] private int baseHeight = 24;
+        [Tooltip("Evaluated in order; Add layers stack relief, Multiply layers modulate what came before them.")]
+        [SerializeField] private List<NoiseLayerDefinition> noiseLayers = new();
 
         [Header("Block types")]
         [SerializeField] private List<BlockDefinition> blocks = new();
@@ -40,11 +35,8 @@ namespace CustomMinecraft
         public int WorldHeight => worldHeight;
         public int ChunkSize => chunkSize;
         public int Seed => seed;
-        public float NoiseScale => noiseScale;
-        public int Octaves => octaves;
-        public float Persistence => persistence;
-        public float Amplitude => amplitude;
         public int BaseHeight => baseHeight;
+        public IReadOnlyList<NoiseLayerDefinition> NoiseLayers => noiseLayers;
         public IReadOnlyList<BlockDefinition> Blocks => blocks;
 
         public BlockDefinition BlockForId(int id)
@@ -59,8 +51,8 @@ namespace CustomMinecraft
 
         /// <summary>
         /// Appends every configuration problem to <paramref name="errors"/>.
-        /// Returns true when the settings are valid. Overlapping height ranges are
-        /// allowed by design; gaps in vertical coverage are not.
+        /// Returns true when the settings are valid. Height ranges may overlap or
+        /// leave gaps; uncovered heights use the nearest block's type.
         /// </summary>
         public bool Validate(List<string> errors)
         {
@@ -68,6 +60,22 @@ namespace CustomMinecraft
 
             if (blocks.Count == 0)
                 errors.Add("At least one block definition is required.");
+
+            if (noiseLayers.Count == 0)
+                errors.Add("At least one noise layer is required.");
+            var seenSalts = new HashSet<int>();
+            foreach (NoiseLayerDefinition layer in noiseLayers)
+            {
+                if (layer == null)
+                {
+                    errors.Add("Noise layer list contains an empty entry.");
+                    continue;
+                }
+                if (!seenSalts.Add(layer.Salt))
+                    errors.Add($"Duplicate noise layer salt {layer.Salt} ('{layer.name}').");
+                if (layer.Operation == NoiseLayerOperation.Multiply && layer.RemapMin > layer.RemapMax)
+                    errors.Add($"Noise layer '{layer.name}' has remap min above remap max.");
+            }
 
             var seenIds = new HashSet<int>();
             foreach (BlockDefinition block in blocks)
@@ -83,26 +91,7 @@ namespace CustomMinecraft
                     errors.Add($"'{block.DisplayName}' has min height {block.MinHeight} above max height {block.MaxHeight}.");
             }
 
-            for (int y = 0; y < worldHeight; y++)
-            {
-                if (!AnyBlockCovers(y))
-                {
-                    errors.Add($"No block definition covers height {y}; every Y in [0, {worldHeight - 1}] needs at least one.");
-                    break;
-                }
-            }
-
             return errors.Count == before;
-        }
-
-        private bool AnyBlockCovers(int y)
-        {
-            foreach (BlockDefinition block in blocks)
-            {
-                if (block != null && block.ContainsHeight(y))
-                    return true;
-            }
-            return false;
         }
     }
 }

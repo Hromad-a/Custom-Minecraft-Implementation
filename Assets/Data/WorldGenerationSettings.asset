@@ -12,16 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85a58d7f2d1d07646909bbfc5fc8bef8, type: 3}
   m_Name: WorldGenerationSettings
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.WorldGenerationSettings
-  worldSizeX: 128
-  worldSizeZ: 128
-  worldHeight: 64
+  worldSizeX: 256
+  worldSizeZ: 256
+  worldHeight: 128
   chunkSize: 16
-  seed: 0
-  noiseScale: 45
-  octaves: 3
-  persistence: 0.5
-  amplitude: 20
+  seed: 1
   baseHeight: 22
+  noiseLayers:
+  - {fileID: 11400000, guid: 51783a6fd3d9e3340855099260239fdb, type: 2}
+  - {fileID: 11400000, guid: 263cc15674c272e479784e7a2f2963f4, type: 2}
+  - {fileID: 11400000, guid: 0b04bd559ea67184a895329321009240, type: 2}
+  - {fileID: 11400000, guid: 3f4715e3c9c84bd4f874f294c60b2408, type: 2}
+  - {fileID: 11400000, guid: c102850ce59f35c48b88e4198526cea8, type: 2}
   blocks:
   - {fileID: 11400000, guid: 104f55eaf2b2a1140b80ac2c8a718323, type: 2}
   - {fileID: 11400000, guid: e7ffd9db9f14bbe47a562e182bc97f9b, type: 2}

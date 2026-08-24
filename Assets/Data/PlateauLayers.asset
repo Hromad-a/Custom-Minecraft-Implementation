@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e9890ed0d14bd045b8c662b0764d92a, type: 3}
+  m_Name: PlateauLayers
+  m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.NoiseLayerDefinition
+  salt: 4
+  operation: 0
+  heightOffset: 30
+  noiseScale: 45
+  octaves: 5
+  persistence: 0.315
+  amplitude: 2
+  remapMin: 0.25
+  remapMax: 1
+  coverage: 0.347
+  regionSize: 102.3
+  regionFalloff: 0.118
