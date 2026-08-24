@@ -74,11 +74,14 @@ namespace CustomMinecraft
         /// ceiling: cells above the top do not exist, so placement there fails.
         /// The block's type was fixed at generation time and is not touched.
         /// </summary>
+        public bool CanPlace(Vector3Int cell) =>
+            Data != null
+            && Data.InBounds(cell.x, cell.y, cell.z)
+            && !Data[cell.x, cell.y, cell.z].IsPresent;
+
         public bool TryPlace(Vector3Int cell)
         {
-            if (Data == null || !Data.InBounds(cell.x, cell.y, cell.z))
-                return false;
-            if (Data[cell.x, cell.y, cell.z].IsPresent)
+            if (!CanPlace(cell))
                 return false;
             Data.SetPresence(cell.x, cell.y, cell.z, true);
             return true;

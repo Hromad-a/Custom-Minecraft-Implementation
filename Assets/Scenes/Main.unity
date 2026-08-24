@@ -152,8 +152,8 @@ MonoBehaviour:
   cameraTransform: {fileID: 330585546}
   width: 0.6
   height: 1.8
-  eyeHeight: 1.62
   walkSpeed: 5
+  sprintMultiplier: 1.6
   jumpHeight: 1.2
   gravity: -25
   maxFallSpeed: 30
@@ -233,7 +233,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.1
   far clip plane: 1000
   field of view: 60
   orthographic: 0

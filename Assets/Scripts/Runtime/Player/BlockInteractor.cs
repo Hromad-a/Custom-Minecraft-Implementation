@@ -21,6 +21,7 @@ namespace CustomMinecraft.Player
         private VoxelPlayerController player;
         private Renderer faceHighlight;
         private Renderer blockHighlight;
+        private GameObject placementWireframe;
         private Color highlightBaseColor;
         private Vector3Int currentTarget;
         private bool hasTarget;
@@ -40,6 +41,7 @@ namespace CustomMinecraft.Player
             faceHighlight = CreateHighlight(PrimitiveType.Quad, "FaceHighlight");
             blockHighlight = CreateHighlight(PrimitiveType.Cube, "BlockHighlight");
             highlightBaseColor = faceHighlight.material.color;
+            placementWireframe = CreatePlacementWireframe();
         }
 
         private void Update()
@@ -82,16 +84,19 @@ namespace CustomMinecraft.Player
 
             if (mouse.leftButton.isPressed && !world.CanMine(hitCell))
             {
+                placementWireframe.SetActive(false);
                 ShowUnmineableHighlight(hitCell);
             }
             else if (mouse.leftButton.isPressed && definition != null)
             {
+                placementWireframe.SetActive(false);
                 ShowMiningHighlight(hitCell, definition);
             }
             else
             {
                 miningProgress = 0f;
                 ShowHoverHighlight(hitCell, faceNormal);
+                ShowPlacementWireframe(placeCell);
             }
 
             if (mouse.rightButton.wasPressedThisFrame)
@@ -156,6 +161,41 @@ namespace CustomMinecraft.Player
             blockHighlight.gameObject.SetActive(false);
         }
 
+        // Outlines the cell a right click would fill; visible only when the
+        // placement would actually succeed.
+        private void ShowPlacementWireframe(Vector3Int placeCell)
+        {
+            bool canPlace = world.CanPlace(placeCell) && !PlacementOverlapsPlayer(placeCell);
+            placementWireframe.SetActive(canPlace);
+            if (canPlace)
+                placementWireframe.transform.position = placeCell + Vector3.one * 0.5f;
+        }
+
+        private GameObject CreatePlacementWireframe()
+        {
+            Vector3[] corners =
+            {
+                new(-0.5f, -0.5f, -0.5f), new(0.5f, -0.5f, -0.5f), new(0.5f, -0.5f, 0.5f), new(-0.5f, -0.5f, 0.5f),
+                new(-0.5f, 0.5f, -0.5f), new(0.5f, 0.5f, -0.5f), new(0.5f, 0.5f, 0.5f), new(-0.5f, 0.5f, 0.5f),
+            };
+            int[] edges = { 0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7 };
+
+            var mesh = new Mesh { name = "PlacementWireframe" };
+            mesh.vertices = corners;
+            mesh.SetIndices(edges, MeshTopology.Lines, 0);
+
+            var wireframe = new GameObject("PlacementWireframe");
+            wireframe.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var wireframeRenderer = wireframe.AddComponent<MeshRenderer>();
+            if (highlightMaterial != null)
+                wireframeRenderer.material = highlightMaterial;
+            wireframeRenderer.material.color = Color.black;
+            // Slightly shrunk so the edges do not z-fight with neighboring block faces.
+            wireframe.transform.localScale = Vector3.one * 0.995f;
+            wireframe.SetActive(false);
+            return wireframe;
+        }
+
         private Renderer CreateHighlight(PrimitiveType primitive, string objectName)
         {
             GameObject highlightObject = GameObject.CreatePrimitive(primitive);
@@ -179,6 +219,8 @@ namespace CustomMinecraft.Player
                 faceHighlight.gameObject.SetActive(false);
             if (blockHighlight != null)
                 blockHighlight.gameObject.SetActive(false);
+            if (placementWireframe != null)
+                placementWireframe.SetActive(false);
         }
     }
 }
