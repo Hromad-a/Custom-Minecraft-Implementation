@@ -148,17 +148,31 @@ namespace CustomMinecraft.Player
             faceHighlight.gameObject.SetActive(false);
         }
 
+        // While hovering nothing is highlighted; the face only appears as the red
+        // flash of a denied placement (against the world ceiling).
         private void ShowHoverHighlight(Vector3Int hitCell, Vector3Int faceNormal)
         {
-            // A denied placement (against the world ceiling) flashes the face red once.
-            Color color = deniedFlashTimer > 0f
-                ? Color.Lerp(highlightBaseColor, DeniedColor, deniedFlashTimer / DeniedFlashDuration)
-                : highlightBaseColor;
-            faceHighlight.material.color = color;
+            blockHighlight.gameObject.SetActive(false);
+            bool flashing = deniedFlashTimer > 0f;
+            faceHighlight.gameObject.SetActive(flashing);
+            if (!flashing)
+                return;
+
+            faceHighlight.material.color =
+                Color.Lerp(highlightBaseColor, DeniedColor, deniedFlashTimer / DeniedFlashDuration);
             faceHighlight.transform.position = hitCell + Vector3.one * 0.5f + (Vector3)faceNormal * 0.505f;
             faceHighlight.transform.rotation = Quaternion.LookRotation(-(Vector3)faceNormal);
-            faceHighlight.gameObject.SetActive(true);
-            blockHighlight.gameObject.SetActive(false);
+        }
+
+        // Dot crosshair marking the screen center while the cursor is locked.
+        private void OnGUI()
+        {
+            if (Cursor.lockState != CursorLockMode.Locked)
+                return;
+            const float size = 4f;
+            GUI.DrawTexture(
+                new Rect((Screen.width - size) * 0.5f, (Screen.height - size) * 0.5f, size, size),
+                Texture2D.whiteTexture);
         }
 
         // Outlines the cell a right click would fill; visible only when the
