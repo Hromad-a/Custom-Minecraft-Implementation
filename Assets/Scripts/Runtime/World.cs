@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
+using System.Linq;
 using CustomMinecraft.Generation;
 using UnityEngine;
 
 namespace CustomMinecraft
 {
     /// <summary>
-    /// Scene-side owner of the world state. Generates on startup and exposes
-    /// <see cref="Regenerated"/> so later systems (renderer, player) can react
-    /// to the world being rebuilt.
+    /// Scene-side owner of the world state. Creates the (lazily generated) world
+    /// on startup and exposes <see cref="Regenerated"/> so other systems
+    /// (renderer, player) can react to the world being rebuilt.
     /// </summary>
     public sealed class World : MonoBehaviour
     {
@@ -46,15 +46,15 @@ namespace CustomMinecraft
             }
 
             CurrentSeed = WorldGenerator.ResolveSeed(settings.Seed);
-            Data = WorldGenerator.Generate(settings, CurrentSeed);
-            Debug.Log(BuildSummary(), this);
+            Data = new WorldData(settings, CurrentSeed);
+            Debug.Log($"World ready: seed {CurrentSeed}, height {settings.WorldHeight}, chunks generate on demand.", this);
             Regenerated?.Invoke();
         }
 
-        /// <summary>
-        /// Removes the block at the cell if the rules allow it. The bottom layer
-        /// (y == 0) is unbreakable, so digging stops at the world floor.
-        /// </summary>
+        /// <summary>Terrain surface height of the column at (x, z).</summary>
+        public int SurfaceHeight(int x, int z) =>
+            WorldGenerator.ColumnHeight(settings, WorldGenerator.HeightmapSeed(CurrentSeed), x, z);
+
         public bool CanMine(Vector3Int cell) =>
             Data != null
             && Data.InBounds(cell.x, cell.y, cell.z)
@@ -69,11 +69,6 @@ namespace CustomMinecraft
             return true;
         }
 
-        /// <summary>
-        /// Places a block into an empty cell. The world bounds double as the build
-        /// ceiling: cells above the top do not exist, so placement there fails.
-        /// The block's type was fixed at generation time and is not touched.
-        /// </summary>
         public bool CanPlace(Vector3Int cell) =>
             Data != null
             && Data.InBounds(cell.x, cell.y, cell.z)
@@ -96,44 +91,46 @@ namespace CustomMinecraft
                 return;
             }
 
+            var export = new WorldExport
+            {
+                seed = Data.seed,
+                chunkSize = Data.chunkSize,
+                sizeY = Data.sizeY,
+            };
+            foreach (var coord in Data.Chunks.Keys.OrderBy(c => c.x).ThenBy(c => c.y))
+            {
+                export.chunks.Add(new ChunkExport
+                {
+                    chunkX = coord.x,
+                    chunkZ = coord.y,
+                    cells = Data.Chunks[coord],
+                });
+            }
+
             string path = Path.Combine(
                 Application.persistentDataPath,
                 $"world_{CurrentSeed}_{DateTime.Now:HHmmss}.json");
-            File.WriteAllText(path, JsonUtility.ToJson(Data, prettyPrint: true));
-            Debug.Log($"World exported to {path}", this);
+            File.WriteAllText(path, JsonUtility.ToJson(export, prettyPrint: true));
+            Debug.Log($"Exported {export.chunks.Count} generated chunks to {path}", this);
         }
 
-        private string BuildSummary()
+        // JSON shape of an export: the generated chunks in a stable sorted order,
+        // so two exports of the same seed and area are diffable files.
+        [Serializable]
+        private sealed class WorldExport
         {
-            var countsByType = new Dictionary<int, int>();
-            int presentTotal = 0;
+            public int seed;
+            public int chunkSize;
+            public int sizeY;
+            public List<ChunkExport> chunks = new();
+        }
 
-            for (int y = 0; y < Data.sizeY; y++)
-            {
-                for (int z = 0; z < Data.sizeZ; z++)
-                {
-                    for (int x = 0; x < Data.sizeX; x++)
-                    {
-                        BlockData cell = Data[x, y, z];
-                        if (!cell.IsPresent)
-                            continue;
-                        presentTotal++;
-                        countsByType.TryGetValue(cell.BlockTypeId, out int count);
-                        countsByType[cell.BlockTypeId] = count + 1;
-                    }
-                }
-            }
-
-            var summary = new StringBuilder()
-                .Append($"World generated: {Data.sizeX}x{Data.sizeY}x{Data.sizeZ}, seed {CurrentSeed}, ")
-                .Append($"{presentTotal:N0} blocks.");
-            foreach (KeyValuePair<int, int> entry in countsByType)
-            {
-                BlockDefinition definition = settings.BlockForId(entry.Key);
-                string label = definition != null ? definition.DisplayName : $"id {entry.Key}";
-                summary.Append($" {label}: {entry.Value:N0}.");
-            }
-            return summary.ToString();
+        [Serializable]
+        private sealed class ChunkExport
+        {
+            public int chunkX;
+            public int chunkZ;
+            public BlockData[] cells;
         }
     }
 }

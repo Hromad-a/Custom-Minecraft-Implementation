@@ -80,7 +80,8 @@ namespace CustomMinecraft.Player
             MoveAxis(1, velocity.y * Time.deltaTime);
             MoveAxis(2, velocity.z * Time.deltaTime);
 
-            // Fell out of the world (walked off the edge): start over on the surface.
+            // Safety net: the floor is unbreakable, so this only fires if a
+            // physics bug ever clips the player through it.
             if (transform.position.y < -10f)
                 Respawn();
         }
@@ -165,12 +166,11 @@ namespace CustomMinecraft.Player
                 {
                     for (int z = min.z; z <= max.z; z++)
                     {
-                        // Above and below the world is open air; beyond the sides
-                        // counts as solid, walling the world in.
+                        // Above and below the world is open air; horizontally the
+                        // world is infinite, so any cell can be asked directly.
                         if (y < 0 || y >= data.sizeY)
                             continue;
-                        bool outsideSides = x < 0 || x >= data.sizeX || z < 0 || z >= data.sizeZ;
-                        if (outsideSides || data.IsSolid(x, y, z))
+                        if (data.IsSolid(x, y, z))
                             return true;
                     }
                 }
@@ -180,10 +180,8 @@ namespace CustomMinecraft.Player
 
         private void Respawn()
         {
-            transform.position = new Vector3(
-                world.Data.sizeX * 0.5f,
-                world.Data.sizeY + 1f,
-                world.Data.sizeZ * 0.5f);
+            int surface = world.SurfaceHeight(0, 0);
+            transform.position = new Vector3(0.5f, surface + world.Settings.SpawnHeightOffset, 0.5f);
             velocity = Vector3.zero;
             grounded = false;
         }

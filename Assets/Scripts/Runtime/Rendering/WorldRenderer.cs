@@ -1,51 +1,63 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CustomMinecraft.Rendering
 {
     /// <summary>
-    /// Renders the world as one mesh per chunk. Meshes are disposable derivations
-    /// of <see cref="WorldData"/>: rebuilt in full on regeneration, and per chunk
-    /// via <see cref="RebuildChunkAt"/> when a block changes. Every chunk shares
-    /// the same material array, one URP Lit material per block type.
+    /// Streams chunk meshes around the viewer: chunks within the view distance
+    /// get one GameObject and mesh each, built within a per-frame time budget
+    /// nearest-first; chunks left behind are destroyed. Meshes stay disposable
+    /// derivations of <see cref="WorldData"/> — <see cref="RebuildChunkAt"/>
+    /// re-derives one after a block edit. Every chunk shares the same material
+    /// array, one material per block type. Scene fog is matched to the view
+    /// distance to hide the streamed edge.
     /// </summary>
     [RequireComponent(typeof(World))]
     public sealed class WorldRenderer : MonoBehaviour
     {
+        [Tooltip("Chunks stream around this transform; defaults to the main camera.")]
+        [SerializeField] private Transform viewer;
+
         private World world;
         private Material[] materials;
-        private MeshFilter[,] chunks;
-        private int chunkSize;
+        private readonly Dictionary<Vector2Int, MeshFilter> activeChunks = new();
+        private readonly List<Vector2Int> buildQueue = new();
+        private readonly List<Vector2Int> unloadBuffer = new();
+        private Vector2Int viewerChunk;
+        private bool streamingDirty = true;
 
         private void Awake()
         {
             world = GetComponent<World>();
-            world.Regenerated += RebuildAll;
+            world.Regenerated += OnWorldRegenerated;
         }
 
         private void Start()
         {
-            // World generates in its own Awake, before we could subscribe.
-            if (world.Data != null)
-                RebuildAll();
+            if (viewer == null && Camera.main != null)
+                viewer = Camera.main.transform;
+            EnsureMaterials();
+            ApplyFog();
         }
 
         private void OnDestroy()
         {
-            world.Regenerated -= RebuildAll;
+            world.Regenerated -= OnWorldRegenerated;
         }
 
-        public void RebuildAll()
+        private void Update()
         {
-            EnsureMaterials();
-            EnsureChunks();
-            for (int cx = 0; cx < chunks.GetLength(0); cx++)
+            if (world.Data == null || viewer == null)
+                return;
+
+            Vector2Int current = ChunkCoordAt(viewer.position);
+            if (current != viewerChunk || streamingDirty)
             {
-                for (int cz = 0; cz < chunks.GetLength(1); cz++)
-                {
-                    chunks[cx, cz].GetComponent<MeshRenderer>().sharedMaterials = materials;
-                    RebuildChunk(cx, cz);
-                }
+                viewerChunk = current;
+                streamingDirty = false;
+                RefreshStreaming();
             }
+            BuildQueuedChunks();
         }
 
         /// <summary>
@@ -54,21 +66,140 @@ namespace CustomMinecraft.Rendering
         /// </summary>
         public void RebuildChunkAt(int x, int z)
         {
-            int cx = x / chunkSize;
-            int cz = z / chunkSize;
-            RebuildChunk(cx, cz);
+            int chunkSize = world.Data.chunkSize;
+            int cx = WorldData.FloorDiv(x, chunkSize);
+            int cz = WorldData.FloorDiv(z, chunkSize);
+            RebuildIfLoaded(cx, cz);
 
             int localX = x - cx * chunkSize;
             int localZ = z - cz * chunkSize;
-            if (localX == 0 && cx > 0) RebuildChunk(cx - 1, cz);
-            if (localX == chunkSize - 1 && cx < chunks.GetLength(0) - 1) RebuildChunk(cx + 1, cz);
-            if (localZ == 0 && cz > 0) RebuildChunk(cx, cz - 1);
-            if (localZ == chunkSize - 1 && cz < chunks.GetLength(1) - 1) RebuildChunk(cx, cz + 1);
+            if (localX == 0) RebuildIfLoaded(cx - 1, cz);
+            if (localX == chunkSize - 1) RebuildIfLoaded(cx + 1, cz);
+            if (localZ == 0) RebuildIfLoaded(cx, cz - 1);
+            if (localZ == chunkSize - 1) RebuildIfLoaded(cx, cz + 1);
         }
 
-        private void RebuildChunk(int cx, int cz)
+        private void OnWorldRegenerated()
         {
-            ChunkMeshBuilder.Build(world.Data, world.Settings, cx, cz, chunks[cx, cz].sharedMesh);
+            foreach (MeshFilter chunk in activeChunks.Values)
+            {
+                Destroy(chunk.sharedMesh);
+                Destroy(chunk.gameObject);
+            }
+            activeChunks.Clear();
+            buildQueue.Clear();
+            EnsureMaterials();
+            ApplyFog();
+            streamingDirty = true;
+        }
+
+        // Recomputed whenever the viewer crosses a chunk border: drop chunks that
+        // fell out of range, queue missing ones nearest-first.
+        private void RefreshStreaming()
+        {
+            int radius = world.Settings.ViewDistance;
+
+            unloadBuffer.Clear();
+            foreach (KeyValuePair<Vector2Int, MeshFilter> entry in activeChunks)
+            {
+                Vector2Int offset = entry.Key - viewerChunk;
+                if (Mathf.Max(Mathf.Abs(offset.x), Mathf.Abs(offset.y)) > radius + 1)
+                    unloadBuffer.Add(entry.Key);
+            }
+            foreach (Vector2Int coord in unloadBuffer)
+            {
+                Destroy(activeChunks[coord].sharedMesh);
+                Destroy(activeChunks[coord].gameObject);
+                activeChunks.Remove(coord);
+            }
+
+            buildQueue.Clear();
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dz = -radius; dz <= radius; dz++)
+                {
+                    var coord = new Vector2Int(viewerChunk.x + dx, viewerChunk.y + dz);
+                    if (!activeChunks.ContainsKey(coord))
+                        buildQueue.Add(coord);
+                }
+            }
+            buildQueue.Sort((a, b) =>
+                (a - viewerChunk).sqrMagnitude.CompareTo((b - viewerChunk).sqrMagnitude));
+        }
+
+        // Works through the queue in small units — one chunk's data generation or
+        // one mesh build per step — until the frame's time budget is spent. Data
+        // for a chunk and its neighbors is prepared in earlier frames than its
+        // mesh, so no single frame pays for everything at once.
+        private void BuildQueuedChunks()
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            float budget = world.Settings.StreamingBudgetMs;
+
+            while (buildQueue.Count > 0 && timer.Elapsed.TotalMilliseconds < budget)
+            {
+                Vector2Int coord = buildQueue[0];
+                if (activeChunks.ContainsKey(coord))
+                {
+                    buildQueue.RemoveAt(0);
+                    continue;
+                }
+
+                if (GenerateOneMissingDataChunk(coord))
+                    continue;
+
+                CreateChunk(coord);
+                buildQueue.RemoveAt(0);
+            }
+        }
+
+        // Meshing a chunk reads its own data plus all four neighbors (border face
+        // checks). Generating one missing piece per step keeps each unit small.
+        private bool GenerateOneMissingDataChunk(Vector2Int coord)
+        {
+            Vector2Int[] needed =
+            {
+                coord, new(coord.x + 1, coord.y), new(coord.x - 1, coord.y),
+                new(coord.x, coord.y + 1), new(coord.x, coord.y - 1),
+            };
+            foreach (Vector2Int c in needed)
+            {
+                if (!world.Data.HasChunk(c.x, c.y))
+                {
+                    world.Data.EnsureChunk(c.x, c.y);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void CreateChunk(Vector2Int coord)
+        {
+            int chunkSize = world.Data.chunkSize;
+            var chunkObject = new GameObject($"Chunk_{coord.x}_{coord.y}");
+            chunkObject.transform.SetParent(transform, false);
+            chunkObject.transform.localPosition = new Vector3(coord.x * chunkSize, 0f, coord.y * chunkSize);
+
+            var filter = chunkObject.AddComponent<MeshFilter>();
+            filter.sharedMesh = new Mesh { name = chunkObject.name };
+            chunkObject.AddComponent<MeshRenderer>().sharedMaterials = materials;
+
+            ChunkMeshBuilder.Build(world.Data, world.Settings, coord.x, coord.y, filter.sharedMesh);
+            activeChunks.Add(coord, filter);
+        }
+
+        private void RebuildIfLoaded(int cx, int cz)
+        {
+            if (activeChunks.TryGetValue(new Vector2Int(cx, cz), out MeshFilter filter))
+                ChunkMeshBuilder.Build(world.Data, world.Settings, cx, cz, filter.sharedMesh);
+        }
+
+        private Vector2Int ChunkCoordAt(Vector3 position)
+        {
+            int chunkSize = world.Data.chunkSize;
+            return new Vector2Int(
+                WorldData.FloorDiv(Mathf.FloorToInt(position.x), chunkSize),
+                WorldData.FloorDiv(Mathf.FloorToInt(position.z), chunkSize));
         }
 
         private void EnsureMaterials()
@@ -83,42 +214,15 @@ namespace CustomMinecraft.Rendering
             }
         }
 
-        private void EnsureChunks()
+        // Distant chunks fade into fog instead of visibly popping in at the edge
+        // of the streamed area.
+        private void ApplyFog()
         {
-            chunkSize = world.Settings.ChunkSize;
-            int countX = Mathf.CeilToInt(world.Data.sizeX / (float)chunkSize);
-            int countZ = Mathf.CeilToInt(world.Data.sizeZ / (float)chunkSize);
-            if (chunks != null && chunks.GetLength(0) == countX && chunks.GetLength(1) == countZ)
-                return;
-
-            DestroyChunks();
-            chunks = new MeshFilter[countX, countZ];
-            for (int cx = 0; cx < countX; cx++)
-            {
-                for (int cz = 0; cz < countZ; cz++)
-                {
-                    var chunkObject = new GameObject($"Chunk_{cx}_{cz}");
-                    chunkObject.transform.SetParent(transform, false);
-                    chunkObject.transform.localPosition = new Vector3(cx * chunkSize, 0f, cz * chunkSize);
-
-                    var filter = chunkObject.AddComponent<MeshFilter>();
-                    filter.sharedMesh = new Mesh { name = chunkObject.name };
-                    chunkObject.AddComponent<MeshRenderer>().sharedMaterials = materials;
-                    chunks[cx, cz] = filter;
-                }
-            }
-        }
-
-        private void DestroyChunks()
-        {
-            if (chunks == null)
-                return;
-            foreach (MeshFilter chunk in chunks)
-            {
-                Destroy(chunk.sharedMesh);
-                Destroy(chunk.gameObject);
-            }
-            chunks = null;
+            float viewDistance = world.Settings.ViewDistance * world.Settings.ChunkSize;
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogStartDistance = viewDistance * 0.5f;
+            RenderSettings.fogEndDistance = viewDistance * 0.95f;
         }
     }
 }

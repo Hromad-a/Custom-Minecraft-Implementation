@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -6,11 +5,12 @@ using UnityEngine.Rendering;
 namespace CustomMinecraft.Rendering
 {
     /// <summary>
-    /// Turns one chunk-sized region of <see cref="WorldData"/> into a mesh.
-    /// Emits only faces adjacent to air (or the world boundary); triangles go into
-    /// one submesh per block type, using the fixed order of the settings' block
-    /// list, so every chunk shares the same material array. Face UVs map into a
-    /// horizontal three-tile texture atlas: top | side | bottom.
+    /// Turns one chunk of <see cref="WorldData"/> into a mesh. Emits only faces
+    /// adjacent to air; triangles go into one submesh per block type, using the
+    /// fixed order of the settings' block list, so every chunk shares the same
+    /// material array. Face UVs map into a horizontal three-tile texture atlas:
+    /// top | side | bottom. The chunk's and its four neighbors' cell arrays are
+    /// fetched once up front, so the per-cell loop is pure array indexing.
     /// </summary>
     public static class ChunkMeshBuilder
     {
@@ -43,23 +43,31 @@ namespace CustomMinecraft.Rendering
         private static readonly List<Vector2> Uvs = new();
         private static readonly List<List<int>> TrianglesPerType = new();
 
+        // Cell arrays of the chunk being built and its horizontal neighbors,
+        // fetched once per build.
+        private static BlockData[] center, east, west, north, south;
+        private static int size, sizeY;
+
         public static void Build(WorldData data, WorldGenerationSettings settings, int chunkX, int chunkZ, Mesh mesh)
         {
             IReadOnlyList<BlockDefinition> blocks = settings.Blocks;
             PrepareBuffers(blocks.Count);
 
-            int startX = chunkX * settings.ChunkSize;
-            int startZ = chunkZ * settings.ChunkSize;
-            int endX = Math.Min(startX + settings.ChunkSize, data.sizeX);
-            int endZ = Math.Min(startZ + settings.ChunkSize, data.sizeZ);
+            size = data.chunkSize;
+            sizeY = data.sizeY;
+            center = data.GetChunkCells(chunkX, chunkZ);
+            east = data.GetChunkCells(chunkX + 1, chunkZ);
+            west = data.GetChunkCells(chunkX - 1, chunkZ);
+            north = data.GetChunkCells(chunkX, chunkZ + 1);
+            south = data.GetChunkCells(chunkX, chunkZ - 1);
 
-            for (int x = startX; x < endX; x++)
+            for (int x = 0; x < size; x++)
             {
-                for (int z = startZ; z < endZ; z++)
+                for (int z = 0; z < size; z++)
                 {
-                    for (int y = 0; y < data.sizeY; y++)
+                    for (int y = 0; y < sizeY; y++)
                     {
-                        BlockData cell = data[x, y, z];
+                        BlockData cell = center[CellIndex(x, y, z)];
                         if (!cell.IsPresent)
                             continue;
 
@@ -67,9 +75,9 @@ namespace CustomMinecraft.Rendering
                         for (int face = 0; face < FaceDirections.Length; face++)
                         {
                             Vector3Int d = FaceDirections[face];
-                            if (data.IsSolid(x + d.x, y + d.y, z + d.z))
+                            if (NeighborIsSolid(x + d.x, y + d.y, z + d.z))
                                 continue;
-                            AddFace(face, x - startX, y, z - startZ, submesh);
+                            AddFace(face, x, y, z, submesh);
                         }
                     }
                 }
@@ -85,6 +93,26 @@ namespace CustomMinecraft.Rendering
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
         }
+
+        // Local coordinates; at most one axis is out of chunk range (face
+        // neighbors), which selects the matching neighbor chunk's array.
+        private static bool NeighborIsSolid(int x, int y, int z)
+        {
+            if (y < 0 || y >= sizeY)
+                return false;
+            if (x < 0)
+                return west[CellIndex(size - 1, y, z)].IsPresent;
+            if (x >= size)
+                return east[CellIndex(0, y, z)].IsPresent;
+            if (z < 0)
+                return south[CellIndex(x, y, size - 1)].IsPresent;
+            if (z >= size)
+                return north[CellIndex(x, y, 0)].IsPresent;
+            return center[CellIndex(x, y, z)].IsPresent;
+        }
+
+        // Must match the cell layout used by WorldData/WorldGenerator.
+        private static int CellIndex(int x, int y, int z) => x + z * size + y * size * size;
 
         private static void PrepareBuffers(int typeCount)
         {

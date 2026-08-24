@@ -1,49 +1,57 @@
 using System;
+using System.Collections.Generic;
+using CustomMinecraft.Generation;
+using UnityEngine;
 
 namespace CustomMinecraft
 {
     /// <summary>
-    /// The single source of truth for world state: a dense 3D grid of
-    /// <see cref="BlockData"/> stored as a flat array (x + z * sizeX + y * sizeX * sizeZ).
-    /// Directly JSON-serializable via JsonUtility; two worlds generated from the
-    /// same seed and settings produce byte-identical JSON.
+    /// World state as a grid of lazily generated chunks, unbounded horizontally.
+    /// Reading any cell generates its chunk on demand, so callers can query
+    /// freely — generation is deterministic per position, so a chunk's content
+    /// never depends on when it was first touched. The vertical range is fixed:
+    /// y in [0, sizeY).
     /// </summary>
-    [Serializable]
     public sealed class WorldData
     {
-        public int sizeX;
-        public int sizeY;
-        public int sizeZ;
-        public int seed;
-        public BlockData[] cells;
+        public readonly int chunkSize;
+        public readonly int sizeY;
+        public readonly int seed;
 
-        public WorldData(int sizeX, int sizeY, int sizeZ, int seed)
+        private readonly WorldGenerationSettings settings;
+        private readonly Dictionary<Vector2Int, BlockData[]> chunks = new();
+
+        public WorldData(WorldGenerationSettings settings, int seed)
         {
-            if (sizeX <= 0 || sizeY <= 0 || sizeZ <= 0)
-                throw new ArgumentOutOfRangeException(
-                    $"World dimensions must be positive, got ({sizeX}, {sizeY}, {sizeZ}).");
-
-            this.sizeX = sizeX;
-            this.sizeY = sizeY;
-            this.sizeZ = sizeZ;
+            this.settings = settings;
             this.seed = seed;
-            cells = new BlockData[sizeX * sizeY * sizeZ];
+            chunkSize = settings.ChunkSize;
+            sizeY = settings.WorldHeight;
         }
+
+        /// <summary>Every chunk generated so far, keyed by chunk coordinate.</summary>
+        public IReadOnlyDictionary<Vector2Int, BlockData[]> Chunks => chunks;
 
         public BlockData this[int x, int y, int z]
         {
-            get => cells[IndexOf(x, y, z)];
-            set => cells[IndexOf(x, y, z)] = value;
+            get
+            {
+                RequireVerticalBounds(y);
+                return Chunk(x, z)[CellIndex(x, y, z)];
+            }
+            set
+            {
+                RequireVerticalBounds(y);
+                Chunk(x, z)[CellIndex(x, y, z)] = value;
+            }
         }
 
-        public bool InBounds(int x, int y, int z) =>
-            x >= 0 && x < sizeX &&
-            y >= 0 && y < sizeY &&
-            z >= 0 && z < sizeZ;
+        /// <summary>Horizontally the world is infinite; only Y is bounded.</summary>
+        public bool InBounds(int x, int y, int z) => y >= 0 && y < sizeY;
 
         /// <summary>True when the cell exists and currently holds a block.</summary>
         public bool IsSolid(int x, int y, int z) =>
-            InBounds(x, y, z) && cells[IndexUnchecked(x, y, z)].IsPresent;
+            y >= 0 && y < sizeY && this[x, y, z].IsPresent;
 
         /// <summary>
         /// Flips presence of a block without touching its generation-assigned type.
@@ -51,17 +59,55 @@ namespace CustomMinecraft
         /// </summary>
         public void SetPresence(int x, int y, int z, bool present)
         {
-            cells[IndexOf(x, y, z)].IsPresent = present;
+            RequireVerticalBounds(y);
+            Chunk(x, z)[CellIndex(x, y, z)].IsPresent = present;
         }
 
-        private int IndexOf(int x, int y, int z)
+        public bool HasChunk(int chunkX, int chunkZ) =>
+            chunks.ContainsKey(new Vector2Int(chunkX, chunkZ));
+
+        /// <summary>
+        /// The chunk's raw cell array (generated on demand). Lets hot loops like
+        /// mesh building index cells directly instead of paying a dictionary
+        /// lookup per cell access.
+        /// </summary>
+        public BlockData[] GetChunkCells(int chunkX, int chunkZ)
         {
-            if (!InBounds(x, y, z))
-                throw new ArgumentOutOfRangeException(
-                    $"({x}, {y}, {z}) is outside the world ({sizeX}x{sizeY}x{sizeZ}).");
-            return IndexUnchecked(x, y, z);
+            EnsureChunk(chunkX, chunkZ);
+            return chunks[new Vector2Int(chunkX, chunkZ)];
         }
 
-        private int IndexUnchecked(int x, int y, int z) => x + z * sizeX + y * sizeX * sizeZ;
+        /// <summary>Generates the chunk's data now if it does not exist yet.</summary>
+        public void EnsureChunk(int chunkX, int chunkZ)
+        {
+            var coord = new Vector2Int(chunkX, chunkZ);
+            if (!chunks.ContainsKey(coord))
+                chunks.Add(coord, WorldGenerator.GenerateChunk(settings, seed, chunkX, chunkZ));
+        }
+
+        /// <summary>Floor division, so negative coordinates map to chunks correctly.</summary>
+        public static int FloorDiv(int value, int size) =>
+            value >= 0 ? value / size : (value + 1) / size - 1;
+
+        private BlockData[] Chunk(int x, int z)
+        {
+            int chunkX = FloorDiv(x, chunkSize);
+            int chunkZ = FloorDiv(z, chunkSize);
+            EnsureChunk(chunkX, chunkZ);
+            return chunks[new Vector2Int(chunkX, chunkZ)];
+        }
+
+        private int CellIndex(int x, int y, int z)
+        {
+            int localX = x - FloorDiv(x, chunkSize) * chunkSize;
+            int localZ = z - FloorDiv(z, chunkSize) * chunkSize;
+            return localX + localZ * chunkSize + y * chunkSize * chunkSize;
+        }
+
+        private void RequireVerticalBounds(int y)
+        {
+            if (y < 0 || y >= sizeY)
+                throw new ArgumentOutOfRangeException(nameof(y), $"{y} is outside the world height [0, {sizeY}).");
+        }
     }
 }

@@ -12,12 +12,18 @@ namespace CustomMinecraft
     public sealed class WorldGenerationSettings : ScriptableObject
     {
         [Header("World dimensions")]
-        [SerializeField, Min(1)] private int worldSizeX = 128;
-        [SerializeField, Min(1)] private int worldSizeZ = 128;
-        [Tooltip("Vertical size of the world; also the build ceiling (exclusive).")]
+        [Tooltip("Vertical size of the world; also the build ceiling (exclusive). Horizontally the world is infinite.")]
         [SerializeField, Min(2)] private int worldHeight = 64;
-        [Tooltip("Horizontal size of one render chunk, used from Step 2 on.")]
+        [Tooltip("Horizontal size of one chunk, the unit of generation and rendering.")]
         [SerializeField, Min(1)] private int chunkSize = 16;
+
+        [Header("Streaming")]
+        [Tooltip("How many chunks around the viewer get meshes.")]
+        [SerializeField, Range(2, 32)] private int viewDistance = 8;
+        [Tooltip("Milliseconds per frame the streamer may spend generating and meshing chunks. Lower = smoother but slower terrain fill-in.")]
+        [SerializeField, Range(0.5f, 10f)] private float streamingBudgetMs = 2f;
+        [Tooltip("Blocks above the origin column's surface where the player spawns.")]
+        [SerializeField, Min(1f)] private float spawnHeightOffset = 2f;
 
         [Header("Terrain")]
         [Tooltip("0 = random seed on every regeneration; any other value reproduces the exact same world.")]
@@ -30,10 +36,11 @@ namespace CustomMinecraft
         [Header("Block types")]
         [SerializeField] private List<BlockDefinition> blocks = new();
 
-        public int WorldSizeX => worldSizeX;
-        public int WorldSizeZ => worldSizeZ;
         public int WorldHeight => worldHeight;
         public int ChunkSize => chunkSize;
+        public int ViewDistance => viewDistance;
+        public float StreamingBudgetMs => streamingBudgetMs;
+        public float SpawnHeightOffset => spawnHeightOffset;
         public int Seed => seed;
         public int BaseHeight => baseHeight;
         public IReadOnlyList<NoiseLayerDefinition> NoiseLayers => noiseLayers;

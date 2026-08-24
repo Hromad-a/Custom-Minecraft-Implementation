@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace CustomMinecraft.Generation
 {
@@ -32,31 +31,37 @@ namespace CustomMinecraft.Generation
             return random == 0 ? 1 : random;
         }
 
-        public static WorldData Generate(WorldGenerationSettings settings, int seed)
+        /// <summary>
+        /// Generates the cells of one chunk. Every value is a pure function of the
+        /// absolute world position and the seed, so chunks can be generated in any
+        /// order and always come out identical. Settings are assumed valid — the
+        /// World validates before any generation happens.
+        /// </summary>
+        public static BlockData[] GenerateChunk(WorldGenerationSettings settings, int seed, int chunkX, int chunkZ)
         {
-            var errors = new List<string>();
-            if (!settings.Validate(errors))
-                throw new InvalidOperationException(
-                    "Cannot generate world, settings are invalid:\n - " + string.Join("\n - ", errors));
-
-            var data = new WorldData(settings.WorldSizeX, settings.WorldHeight, settings.WorldSizeZ, seed);
+            int size = settings.ChunkSize;
+            int height = settings.WorldHeight;
+            var cells = new BlockData[size * size * height];
             int heightmapSeed = HeightmapSeed(seed);
             int typeSeed = DeterministicHash.DeriveSeed(seed, TypeVariationSalt);
 
-            for (int z = 0; z < settings.WorldSizeZ; z++)
+            for (int localZ = 0; localZ < size; localZ++)
             {
-                for (int x = 0; x < settings.WorldSizeX; x++)
+                for (int localX = 0; localX < size; localX++)
                 {
-                    int columnHeight = ColumnHeight(settings, heightmapSeed, x, z);
-                    for (int y = 0; y < settings.WorldHeight; y++)
+                    int worldX = chunkX * size + localX;
+                    int worldZ = chunkZ * size + localZ;
+                    int columnHeight = ColumnHeight(settings, heightmapSeed, worldX, worldZ);
+                    for (int y = 0; y < height; y++)
                     {
-                        int typeId = PickTypeId(settings, x, y, z, typeSeed);
-                        data[x, y, z] = new BlockData(y <= columnHeight, typeId);
+                        int typeId = PickTypeId(settings, worldX, y, worldZ, typeSeed);
+                        cells[localX + localZ * size + y * size * size] =
+                            new BlockData(y <= columnHeight, typeId);
                     }
                 }
             }
 
-            return data;
+            return cells;
         }
 
         /// <summary>
