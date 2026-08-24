@@ -28,7 +28,7 @@ namespace CustomMinecraft.Player
         private float deniedFlashTimer;
 
         private static readonly Color DeniedColor = new(1f, 0.15f, 0.15f, 0.5f);
-        private const float DeniedFlashDuration = 0.35f;
+        private const float DeniedFlashDuration = 1f;
 
         private void Awake()
         {

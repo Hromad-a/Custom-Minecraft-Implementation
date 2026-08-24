@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 3
   displayName: Snow
   material: {fileID: 2100000, guid: 7421737fa12868e4f8070d22bb262f25, type: 2}
-  mineDuration: 0.75
+  mineDuration: 0.375
   minHeight: 31
   maxHeight: 63
   generationWeight: 1

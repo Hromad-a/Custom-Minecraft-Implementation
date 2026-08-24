@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 1
   displayName: Rock
   material: {fileID: 2100000, guid: 583be5b91a43b094ea68cb8823fe3dbb, type: 2}
-  mineDuration: 3
+  mineDuration: 1.5
   minHeight: 0
   maxHeight: 20
   generationWeight: 1

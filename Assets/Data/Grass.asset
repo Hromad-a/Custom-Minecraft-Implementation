@@ -15,7 +15,7 @@ MonoBehaviour:
   id: 2
   displayName: Grass
   material: {fileID: 2100000, guid: 34e8daab42bf0e845bd6c765d44fbd25, type: 2}
-  mineDuration: 1.5
+  mineDuration: 0.75
   minHeight: 17
   maxHeight: 34
   generationWeight: 1
