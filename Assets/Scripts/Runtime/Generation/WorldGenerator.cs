@@ -38,7 +38,6 @@ namespace CustomMinecraft.Generation
             var data = new WorldData(settings.WorldSizeX, settings.WorldHeight, settings.WorldSizeZ, seed);
             int heightmapSeed = DeterministicHash.DeriveSeed(seed, HeightmapSalt);
             int typeSeed = DeterministicHash.DeriveSeed(seed, TypeVariationSalt);
-            TypeCandidates[] typeTable = BuildTypeTable(settings);
 
             for (int z = 0; z < settings.WorldSizeZ; z++)
             {
@@ -47,7 +46,7 @@ namespace CustomMinecraft.Generation
                     int columnHeight = ColumnHeight(settings, heightmapSeed, x, z);
                     for (int y = 0; y < settings.WorldHeight; y++)
                     {
-                        int typeId = PickTypeId(typeTable[y], x, y, z, typeSeed);
+                        int typeId = PickTypeId(settings, x, y, z, typeSeed);
                         data[x, y, z] = new BlockData(y <= columnHeight, typeId);
                     }
                 }
@@ -71,50 +70,34 @@ namespace CustomMinecraft.Generation
             return Math.Clamp(height, 1, settings.WorldHeight - 1);
         }
 
-        // The deterministic type of a cell: sole candidate wins outright, overlaps
-        // are resolved by a position-hashed weighted pick.
-        private static int PickTypeId(in TypeCandidates candidates, int x, int y, int z, int typeSeed)
+        // The deterministic type of a cell: every block whose height range contains
+        // y votes with a weight (fading toward its range edges, scaled by its
+        // generation weight), and a position-hashed roll picks the winner.
+        private static int PickTypeId(WorldGenerationSettings settings, int x, int y, int z, int typeSeed)
         {
-            if (candidates.Ids.Length == 1)
-                return candidates.Ids[0];
-
-            float roll = DeterministicHash.Value01(x, y, z, typeSeed) * candidates.TotalWeight;
-            for (int i = 0; i < candidates.Ids.Length; i++)
+            float totalWeight = 0f;
+            foreach (BlockDefinition block in settings.Blocks)
             {
-                roll -= candidates.Weights[i];
+                if (block.ContainsHeight(y))
+                    totalWeight += VoteWeight(block, y);
+            }
+
+            float roll = DeterministicHash.Value01(x, y, z, typeSeed) * totalWeight;
+            int typeId = 0;
+            foreach (BlockDefinition block in settings.Blocks)
+            {
+                if (!block.ContainsHeight(y))
+                    continue;
+                typeId = block.Id;
+                roll -= VoteWeight(block, y);
                 if (roll < 0f)
-                    return candidates.Ids[i];
+                    break;
             }
-            return candidates.Ids[^1];
+            return typeId;
         }
 
-        // Precomputes, per world Y, which block types are eligible and their weights.
-        // Weight = tent curve over the block's own range (fades toward its edges)
-        // times the per-definition generation weight.
-        private static TypeCandidates[] BuildTypeTable(WorldGenerationSettings settings)
-        {
-            var table = new TypeCandidates[settings.WorldHeight];
-            var ids = new List<int>();
-            var weights = new List<float>();
-
-            for (int y = 0; y < settings.WorldHeight; y++)
-            {
-                ids.Clear();
-                weights.Clear();
-
-                foreach (BlockDefinition block in settings.Blocks)
-                {
-                    if (block == null || !block.ContainsHeight(y))
-                        continue;
-                    ids.Add(block.Id);
-                    weights.Add(EdgeFade(y, block.MinHeight, block.MaxHeight) * block.GenerationWeight);
-                }
-
-                table[y] = new TypeCandidates(ids.ToArray(), weights.ToArray());
-            }
-
-            return table;
-        }
+        private static float VoteWeight(BlockDefinition block, int y) =>
+            EdgeFade(y, block.MinHeight, block.MaxHeight) * block.GenerationWeight;
 
         private static float EdgeFade(int y, int minHeight, int maxHeight)
         {
@@ -124,22 +107,6 @@ namespace CustomMinecraft.Generation
             float t = (y - minHeight) / (float)(maxHeight - minHeight);
             float tent = 1f - MathF.Abs(2f * t - 1f);
             return MathF.Max(tent, MinEdgeWeight);
-        }
-
-        private readonly struct TypeCandidates
-        {
-            public readonly int[] Ids;
-            public readonly float[] Weights;
-            public readonly float TotalWeight;
-
-            public TypeCandidates(int[] ids, float[] weights)
-            {
-                Ids = ids;
-                Weights = weights;
-                TotalWeight = 0f;
-                for (int i = 0; i < weights.Length; i++)
-                    TotalWeight += weights[i];
-            }
         }
     }
 }
