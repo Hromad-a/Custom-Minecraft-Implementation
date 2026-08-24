@@ -11,23 +11,15 @@ namespace CustomMinecraft.Generation
         public static int DeriveSeed(int masterSeed, int salt) =>
             unchecked((int)Fold(Fold((uint)masterSeed) ^ (uint)salt));
 
-        /// <summary>Uniform value in [0, 1) from a 2D coordinate and seed.</summary>
-        public static float Value01(int x, int y, int seed)
-        {
-            uint h = Fold((uint)seed);
-            h = Fold(h ^ (uint)x);
-            h = Fold(h ^ (uint)y);
-            return ToUnitFloat(h);
-        }
-
-        /// <summary>Uniform value in [0, 1) from a 3D coordinate and seed.</summary>
+        /// <summary>Uniform value in [0, 1) from a coordinate and seed (pass 0 for unused axes).</summary>
         public static float Value01(int x, int y, int z, int seed)
         {
             uint h = Fold((uint)seed);
             h = Fold(h ^ (uint)x);
             h = Fold(h ^ (uint)y);
             h = Fold(h ^ (uint)z);
-            return ToUnitFloat(h);
+            // Top 24 bits -> float, keeps full float precision in [0, 1).
+            return (h >> 8) * (1f / 16777216f);
         }
 
         // SplitMix-style avalanche; cheap and well distributed for lattice input.
@@ -43,8 +35,5 @@ namespace CustomMinecraft.Generation
                 return v;
             }
         }
-
-        // Top 24 bits -> float, keeps full float precision in [0, 1).
-        private static float ToUnitFloat(uint h) => (h >> 8) * (1f / 16777216f);
     }
 }

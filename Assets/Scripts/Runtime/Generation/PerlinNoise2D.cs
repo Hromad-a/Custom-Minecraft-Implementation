@@ -60,7 +60,7 @@ namespace CustomMinecraft.Generation
 
         private static float GradientDot(int cellX, int cellY, int seed, float dx, float dy)
         {
-            float angle = DeterministicHash.Value01(cellX, cellY, seed) * (2f * MathF.PI);
+            float angle = DeterministicHash.Value01(cellX, cellY, 0, seed) * (2f * MathF.PI);
             return MathF.Cos(angle) * dx + MathF.Sin(angle) * dy;
         }
 
