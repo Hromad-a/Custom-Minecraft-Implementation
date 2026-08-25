@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.WorldGenerationSettings
   worldHeight: 128
   chunkSize: 4
-  viewDistance: 22
-  streamingBudgetMs: 2
+  viewDistance: 32
+  streamingBudgetMs: 8
   spawnHeightOffset: 2
-  seed: 1
+  seed: 0
   baseHeight: 22
   noiseLayers:
   - {fileID: 11400000, guid: 51783a6fd3d9e3340855099260239fdb, type: 2}
