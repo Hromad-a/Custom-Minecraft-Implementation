@@ -1,4 +1,3 @@
-using CustomMinecraft.Rendering;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -17,7 +16,6 @@ namespace CustomMinecraft.Player
         [SerializeField] private Material highlightMaterial;
         [SerializeField, Min(1f)] private float reach = 6f;
 
-        private WorldRenderer worldRenderer;
         private VoxelPlayerController player;
         private Renderer faceHighlight;
         private Renderer blockHighlight;
@@ -35,7 +33,6 @@ namespace CustomMinecraft.Player
         {
             if (world == null)
                 world = FindFirstObjectByType<World>();
-            worldRenderer = world.GetComponent<WorldRenderer>();
             player = GetComponentInParent<VoxelPlayerController>();
 
             faceHighlight = CreateHighlight(PrimitiveType.Quad, "FaceHighlight");
@@ -103,8 +100,8 @@ namespace CustomMinecraft.Player
             {
                 if (placeCell.y >= world.Data.sizeY)
                     deniedFlashTimer = DeniedFlashDuration;
-                else if (!PlacementOverlapsPlayer(placeCell) && world.TryPlace(placeCell))
-                    worldRenderer.RebuildChunkAt(placeCell.x, placeCell.z);
+                else if (!PlacementOverlapsPlayer(placeCell))
+                    world.TryPlace(placeCell);
             }
         }
 
@@ -123,10 +120,7 @@ namespace CustomMinecraft.Player
         {
             miningProgress += Time.deltaTime;
             if (miningProgress >= definition.MineDuration && world.TryMine(hitCell))
-            {
-                worldRenderer.RebuildChunkAt(hitCell.x, hitCell.z);
                 miningProgress = 0f;
-            }
 
             Color color = highlightBaseColor;
             color.a = Mathf.Lerp(highlightBaseColor.a, 0.85f, Mathf.Clamp01(miningProgress / definition.MineDuration));

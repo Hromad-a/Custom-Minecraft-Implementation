@@ -27,6 +27,9 @@ namespace CustomMinecraft
 
         public event Action Regenerated;
 
+        /// <summary>Raised for every cell whose presence changed through mining or placing.</summary>
+        public event Action<Vector3Int> BlockChanged;
+
         private void Awake()
         {
             Regenerate();
@@ -90,8 +93,12 @@ namespace CustomMinecraft
         {
             if (!CanMine(cell))
                 return false;
+            int typeId = Data[cell.x, cell.y, cell.z].BlockTypeId;
             Data.SetPresence(cell.x, cell.y, cell.z, false);
             modifications[cell] = false;
+            BlockChanged?.Invoke(cell);
+            // Block behavior hook — e.g. explosives chain-mine their surroundings.
+            settings.BlockForId(typeId)?.OnMined(this, cell);
             return true;
         }
 
@@ -106,6 +113,7 @@ namespace CustomMinecraft
                 return false;
             Data.SetPresence(cell.x, cell.y, cell.z, true);
             modifications[cell] = true;
+            BlockChanged?.Invoke(cell);
             return true;
         }
 

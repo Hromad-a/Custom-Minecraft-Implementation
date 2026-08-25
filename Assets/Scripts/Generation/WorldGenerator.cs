@@ -124,20 +124,20 @@ namespace CustomMinecraft.Generation
             float totalWeight = 0f;
             foreach (BlockDefinitionBase block in settings.Blocks)
             {
-                if (block.ContainsHeight(y))
+                if (block.ContainsHeight(y) && block.CanGenerateAt(x, y, z, typeSeed))
                     totalWeight += VoteWeight(block, y);
             }
 
-            // No range covers this height: fall back to the nearest one, so the
-            // deepest block extends downward and the highest extends upward.
+            // No block is eligible here: fall back to the nearest height range,
+            // so the deepest block extends downward and the highest upward.
             if (totalWeight == 0f)
-                return NearestBlock(settings, y).Id;
+                return NearestBlock(settings, x, y, z, typeSeed).Id;
 
             float roll = DeterministicHash.Value01(x, y, z, typeSeed) * totalWeight;
             int typeId = 0;
             foreach (BlockDefinitionBase block in settings.Blocks)
             {
-                if (!block.ContainsHeight(y))
+                if (!block.ContainsHeight(y) || !block.CanGenerateAt(x, y, z, typeSeed))
                     continue;
                 typeId = block.Id;
                 roll -= VoteWeight(block, y);
@@ -147,12 +147,14 @@ namespace CustomMinecraft.Generation
             return typeId;
         }
 
-        private static BlockDefinitionBase NearestBlock(WorldGenerationSettings settings, int y)
+        private static BlockDefinitionBase NearestBlock(WorldGenerationSettings settings, int x, int y, int z, int typeSeed)
         {
             BlockDefinitionBase nearest = null;
             int bestDistance = int.MaxValue;
             foreach (BlockDefinitionBase block in settings.Blocks)
             {
+                if (!block.CanGenerateAt(x, y, z, typeSeed))
+                    continue;
                 int distance = y < block.MinHeight ? block.MinHeight - y
                     : y > block.MaxHeight ? y - block.MaxHeight
                     : 0;
@@ -162,7 +164,9 @@ namespace CustomMinecraft.Generation
                     nearest = block;
                 }
             }
-            return nearest;
+            // Every block restricted itself away from this cell: any block beats
+            // an untyped cell, so take the first.
+            return nearest != null ? nearest : settings.Blocks[0];
         }
 
         private static float VoteWeight(BlockDefinitionBase block, int y) =>

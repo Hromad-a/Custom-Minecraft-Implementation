@@ -26,10 +26,13 @@ namespace CustomMinecraft.Rendering
         private Vector2Int viewerChunk;
         private bool streamingDirty = true;
 
+        private readonly HashSet<Vector2Int> dirtyChunks = new();
+
         private void Awake()
         {
             world = GetComponent<World>();
             world.Regenerated += OnWorldRegenerated;
+            world.BlockChanged += OnBlockChanged;
         }
 
         private void Start()
@@ -43,6 +46,7 @@ namespace CustomMinecraft.Rendering
         private void OnDestroy()
         {
             world.Regenerated -= OnWorldRegenerated;
+            world.BlockChanged -= OnBlockChanged;
         }
 
         private void Update()
@@ -60,23 +64,32 @@ namespace CustomMinecraft.Rendering
             BuildQueuedChunks();
         }
 
-        /// <summary>
-        /// Rebuilds the chunk containing cell (x, z), plus adjacent chunks when the
-        /// cell lies on a chunk border (their buried faces may just have been exposed).
-        /// </summary>
-        public void RebuildChunkAt(int x, int z)
+        // Edited cells mark their chunk dirty — plus the neighbor chunk when the
+        // cell lies on a border (its buried faces may just have been exposed).
+        // Rebuilds happen batched in LateUpdate, so one explosion editing dozens
+        // of cells still rebuilds each affected chunk exactly once this frame.
+        private void OnBlockChanged(Vector3Int cell)
         {
             int chunkSize = world.Data.chunkSize;
-            int cx = WorldData.FloorDiv(x, chunkSize);
-            int cz = WorldData.FloorDiv(z, chunkSize);
-            RebuildIfLoaded(cx, cz);
+            int cx = WorldData.FloorDiv(cell.x, chunkSize);
+            int cz = WorldData.FloorDiv(cell.z, chunkSize);
+            dirtyChunks.Add(new Vector2Int(cx, cz));
 
-            int localX = x - cx * chunkSize;
-            int localZ = z - cz * chunkSize;
-            if (localX == 0) RebuildIfLoaded(cx - 1, cz);
-            if (localX == chunkSize - 1) RebuildIfLoaded(cx + 1, cz);
-            if (localZ == 0) RebuildIfLoaded(cx, cz - 1);
-            if (localZ == chunkSize - 1) RebuildIfLoaded(cx, cz + 1);
+            int localX = cell.x - cx * chunkSize;
+            int localZ = cell.z - cz * chunkSize;
+            if (localX == 0) dirtyChunks.Add(new Vector2Int(cx - 1, cz));
+            if (localX == chunkSize - 1) dirtyChunks.Add(new Vector2Int(cx + 1, cz));
+            if (localZ == 0) dirtyChunks.Add(new Vector2Int(cx, cz - 1));
+            if (localZ == chunkSize - 1) dirtyChunks.Add(new Vector2Int(cx, cz + 1));
+        }
+
+        private void LateUpdate()
+        {
+            if (dirtyChunks.Count == 0)
+                return;
+            foreach (Vector2Int coord in dirtyChunks)
+                RebuildIfLoaded(coord.x, coord.y);
+            dirtyChunks.Clear();
         }
 
         private void OnWorldRegenerated()
@@ -88,6 +101,7 @@ namespace CustomMinecraft.Rendering
             }
             activeChunks.Clear();
             buildQueue.Clear();
+            dirtyChunks.Clear();
             EnsureMaterials();
             ApplyFog();
             streamingDirty = true;

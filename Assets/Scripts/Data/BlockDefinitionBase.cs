@@ -14,6 +14,8 @@ namespace CustomMinecraft
         [SerializeField] private string displayName;
         [Tooltip("Rendering material for this block type; shared by every chunk.")]
         [SerializeField] private Material material;
+        [Tooltip("Seconds the mine button must be held to destroy this block. -1 = unbreakable.")]
+        [SerializeField, Min(-1f)] private float mineDuration = 1f;
 
         [Header("Generation")]
         [Tooltip("Lowest world Y (inclusive) where this block can generate.")]
@@ -30,9 +32,20 @@ namespace CustomMinecraft
         public int MaxHeight => maxHeight;
         public float GenerationWeight => generationWeight;
 
-        /// <summary>Seconds the mine button must be held to destroy this block.</summary>
-        public abstract float MineDuration { get; }
+        public float MineDuration => mineDuration;
+        public bool IsUnbreakable => mineDuration < 0f;
 
         public bool ContainsHeight(int y) => y >= minHeight && y <= maxHeight;
+
+        /// <summary>
+        /// Whether this block may generate at this cell, on top of the height
+        /// range. Must be deterministic: a pure function of position and seed.
+        /// </summary>
+        public virtual bool CanGenerateAt(int x, int y, int z, int seed) => true;
+
+        /// <summary>Called after a block of this type has been mined.</summary>
+        public virtual void OnMined(World world, Vector3Int cell)
+        {
+        }
     }
 }
