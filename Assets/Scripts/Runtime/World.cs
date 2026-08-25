@@ -16,9 +16,14 @@ namespace CustomMinecraft
     {
         [SerializeField] private WorldGenerationSettings settings;
 
+        // Every cell whose presence differs from what the seed generates —
+        // the world diff that the save system persists.
+        private readonly Dictionary<Vector3Int, bool> modifications = new();
+
         public WorldGenerationSettings Settings => settings;
         public WorldData Data { get; private set; }
         public int CurrentSeed { get; private set; }
+        public IReadOnlyDictionary<Vector3Int, bool> Modifications => modifications;
 
         public event Action Regenerated;
 
@@ -29,6 +34,15 @@ namespace CustomMinecraft
 
         [ContextMenu("Regenerate")]
         public void Regenerate()
+        {
+            if (settings != null)
+                RegenerateWithSeed(WorldGenerator.ResolveSeed(settings.Seed));
+            else
+                Debug.LogError("World has no WorldGenerationSettings assigned.", this);
+        }
+
+        /// <summary>Rebuilds the world from a specific seed (used by loading).</summary>
+        public void RegenerateWithSeed(int seed)
         {
             if (settings == null)
             {
@@ -45,10 +59,21 @@ namespace CustomMinecraft
                 return;
             }
 
-            CurrentSeed = WorldGenerator.ResolveSeed(settings.Seed);
+            CurrentSeed = seed;
+            modifications.Clear();
             Data = new WorldData(settings, CurrentSeed);
             Debug.Log($"World ready: seed {CurrentSeed}, height {settings.WorldHeight}, chunks generate on demand.", this);
             Regenerated?.Invoke();
+        }
+
+        /// <summary>
+        /// Reapplies one saved modification: sets the cell's presence (generating
+        /// its chunk on demand) and records it so a later save keeps it.
+        /// </summary>
+        public void RestoreModification(Vector3Int cell, bool present)
+        {
+            Data.SetPresence(cell.x, cell.y, cell.z, present);
+            modifications[cell] = present;
         }
 
         /// <summary>Terrain surface height of the column at (x, z).</summary>
@@ -66,6 +91,7 @@ namespace CustomMinecraft
             if (!CanMine(cell))
                 return false;
             Data.SetPresence(cell.x, cell.y, cell.z, false);
+            modifications[cell] = false;
             return true;
         }
 
@@ -79,6 +105,7 @@ namespace CustomMinecraft
             if (!CanPlace(cell))
                 return false;
             Data.SetPresence(cell.x, cell.y, cell.z, true);
+            modifications[cell] = true;
             return true;
         }
 

@@ -39,6 +39,21 @@ namespace CustomMinecraft.Player
         public Bounds WorldBounds =>
             new(transform.position + Vector3.up * (height * 0.5f), new Vector3(width, height, width));
 
+        public float Yaw => yaw;
+        public float Pitch => pitch;
+
+        /// <summary>Moves the player and look direction outright (used by loading).</summary>
+        public void Teleport(Vector3 position, float newYaw, float newPitch)
+        {
+            transform.position = position;
+            yaw = newYaw;
+            pitch = newPitch;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            cameraTransform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            velocity = Vector3.zero;
+            grounded = false;
+        }
+
         private void Awake()
         {
             if (world == null)

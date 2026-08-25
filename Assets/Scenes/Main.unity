@@ -514,6 +514,7 @@ GameObject:
   - component: {fileID: 872331994}
   - component: {fileID: 872331993}
   - component: {fileID: 872331995}
+  - component: {fileID: 872331996}
   m_Layer: 0
   m_Name: World
   m_TagString: Untagged
@@ -561,6 +562,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 588a42fa26ee5bc46bbe404ad25e65e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.Rendering.WorldRenderer
+  viewer: {fileID: 0}
+--- !u!114 &872331996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 872331992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ade5c4d8549a7247a7a5f84183f65bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CustomMinecraft.SaveSystem
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
