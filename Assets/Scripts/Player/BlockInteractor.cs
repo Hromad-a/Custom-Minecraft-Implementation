@@ -77,7 +77,7 @@ namespace CustomMinecraft.Player
                 miningProgress = 0f;
             }
 
-            BlockDefinition definition =
+            BlockDefinitionBase definition =
                 world.Settings.BlockForId(world.Data[hitCell.x, hitCell.y, hitCell.z].BlockTypeId);
 
             deniedFlashTimer -= Time.deltaTime;
@@ -119,7 +119,7 @@ namespace CustomMinecraft.Player
             return player.WorldBounds.Intersects(cellBounds);
         }
 
-        private void ShowMiningHighlight(Vector3Int hitCell, BlockDefinition definition)
+        private void ShowMiningHighlight(Vector3Int hitCell, BlockDefinitionBase definition)
         {
             miningProgress += Time.deltaTime;
             if (miningProgress >= definition.MineDuration && world.TryMine(hitCell))

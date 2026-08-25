@@ -3,20 +3,17 @@ using UnityEngine;
 namespace CustomMinecraft
 {
     /// <summary>
-    /// Data definition of one block type. All gameplay-relevant numbers live here
-    /// so new block variants are pure data, no code changes.
+    /// Base of all block types: identity, rendering, and world generation data.
+    /// Behavior differences live in subclasses — see <see cref="BlockDefinitionOrdinary"/>
+    /// for the standard hold-to-mine block.
     /// </summary>
-    [CreateAssetMenu(menuName = "Custom Minecraft/Block Definition", fileName = "NewBlockDefinition")]
-    public sealed class BlockDefinition : ScriptableObject
+    public abstract class BlockDefinitionBase : ScriptableObject
     {
         [Tooltip("Stable identifier stored in world data. Never reuse or renumber a shipped id.")]
         [SerializeField, Min(0)] private int id;
         [SerializeField] private string displayName;
         [Tooltip("Rendering material for this block type; shared by every chunk.")]
         [SerializeField] private Material material;
-
-        [Tooltip("Seconds the mine button must be held to destroy this block.")]
-        [SerializeField, Min(0.05f)] private float mineDuration = 1f;
 
         [Header("Generation")]
         [Tooltip("Lowest world Y (inclusive) where this block can generate.")]
@@ -29,10 +26,12 @@ namespace CustomMinecraft
         public int Id => id;
         public string DisplayName => displayName;
         public Material Material => material;
-        public float MineDuration => mineDuration;
         public int MinHeight => minHeight;
         public int MaxHeight => maxHeight;
         public float GenerationWeight => generationWeight;
+
+        /// <summary>Seconds the mine button must be held to destroy this block.</summary>
+        public abstract float MineDuration { get; }
 
         public bool ContainsHeight(int y) => y >= minHeight && y <= maxHeight;
     }

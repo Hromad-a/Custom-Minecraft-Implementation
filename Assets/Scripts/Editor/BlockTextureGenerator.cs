@@ -67,7 +67,7 @@ namespace CustomMinecraft.EditorTools
             if (!AssetDatabase.IsValidFolder(TextureFolder))
                 AssetDatabase.CreateFolder("Assets/Data", "Textures");
 
-            foreach (BlockDefinition block in settings.Blocks)
+            foreach (BlockDefinitionBase block in settings.Blocks)
             {
                 if (block == null || block.Material == null)
                 {

@@ -34,7 +34,7 @@ namespace CustomMinecraft
         [SerializeField] private List<NoiseLayerDefinition> noiseLayers = new();
 
         [Header("Block types")]
-        [SerializeField] private List<BlockDefinition> blocks = new();
+        [SerializeField] private List<BlockDefinitionBase> blocks = new();
 
         public int WorldHeight => worldHeight;
         public int ChunkSize => chunkSize;
@@ -44,9 +44,9 @@ namespace CustomMinecraft
         public int Seed => seed;
         public int BaseHeight => baseHeight;
         public IReadOnlyList<NoiseLayerDefinition> NoiseLayers => noiseLayers;
-        public IReadOnlyList<BlockDefinition> Blocks => blocks;
+        public IReadOnlyList<BlockDefinitionBase> Blocks => blocks;
 
-        public BlockDefinition BlockForId(int id)
+        public BlockDefinitionBase BlockForId(int id)
         {
             for (int i = 0; i < blocks.Count; i++)
             {
@@ -85,7 +85,7 @@ namespace CustomMinecraft
             }
 
             var seenIds = new HashSet<int>();
-            foreach (BlockDefinition block in blocks)
+            foreach (BlockDefinitionBase block in blocks)
             {
                 if (block == null)
                 {

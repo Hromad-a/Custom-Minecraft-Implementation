@@ -122,7 +122,7 @@ namespace CustomMinecraft.Generation
         private static int PickTypeId(WorldGenerationSettings settings, int x, int y, int z, int typeSeed)
         {
             float totalWeight = 0f;
-            foreach (BlockDefinition block in settings.Blocks)
+            foreach (BlockDefinitionBase block in settings.Blocks)
             {
                 if (block.ContainsHeight(y))
                     totalWeight += VoteWeight(block, y);
@@ -135,7 +135,7 @@ namespace CustomMinecraft.Generation
 
             float roll = DeterministicHash.Value01(x, y, z, typeSeed) * totalWeight;
             int typeId = 0;
-            foreach (BlockDefinition block in settings.Blocks)
+            foreach (BlockDefinitionBase block in settings.Blocks)
             {
                 if (!block.ContainsHeight(y))
                     continue;
@@ -147,11 +147,11 @@ namespace CustomMinecraft.Generation
             return typeId;
         }
 
-        private static BlockDefinition NearestBlock(WorldGenerationSettings settings, int y)
+        private static BlockDefinitionBase NearestBlock(WorldGenerationSettings settings, int y)
         {
-            BlockDefinition nearest = null;
+            BlockDefinitionBase nearest = null;
             int bestDistance = int.MaxValue;
-            foreach (BlockDefinition block in settings.Blocks)
+            foreach (BlockDefinitionBase block in settings.Blocks)
             {
                 int distance = y < block.MinHeight ? block.MinHeight - y
                     : y > block.MaxHeight ? y - block.MaxHeight
@@ -165,7 +165,7 @@ namespace CustomMinecraft.Generation
             return nearest;
         }
 
-        private static float VoteWeight(BlockDefinition block, int y) =>
+        private static float VoteWeight(BlockDefinitionBase block, int y) =>
             EdgeFade(y, block.MinHeight, block.MaxHeight) * block.GenerationWeight;
 
         private static float EdgeFade(int y, int minHeight, int maxHeight)

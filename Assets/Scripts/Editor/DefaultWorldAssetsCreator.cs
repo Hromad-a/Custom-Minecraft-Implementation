@@ -28,11 +28,11 @@ namespace CustomMinecraft.EditorTools
                 return;
             }
 
-            BlockDefinition rock = CreateBlock("Rock", 1, new Color(0.42f, 0.42f, 0.45f),
+            BlockDefinitionOrdinary rock = CreateBlock("Rock", 1, new Color(0.42f, 0.42f, 0.45f),
                 mineDuration: 3f, minHeight: 0, maxHeight: 20);
-            BlockDefinition grass = CreateBlock("Grass", 2, new Color(0.36f, 0.63f, 0.27f),
+            BlockDefinitionOrdinary grass = CreateBlock("Grass", 2, new Color(0.36f, 0.63f, 0.27f),
                 mineDuration: 1.5f, minHeight: 17, maxHeight: 34);
-            BlockDefinition snow = CreateBlock("Snow", 3, new Color(0.94f, 0.95f, 0.96f),
+            BlockDefinitionOrdinary snow = CreateBlock("Snow", 3, new Color(0.94f, 0.95f, 0.96f),
                 mineDuration: 0.75f, minHeight: 31, maxHeight: 63);
 
             var settings = ScriptableObject.CreateInstance<WorldGenerationSettings>();
@@ -108,14 +108,14 @@ namespace CustomMinecraft.EditorTools
             AssetDatabase.SaveAssets();
         }
 
-        private static BlockDefinition CreateBlock(
+        private static BlockDefinitionOrdinary CreateBlock(
             string blockName, int id, Color color, float mineDuration, int minHeight, int maxHeight)
         {
             var material = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
             material.SetFloat("_Smoothness", 0f);
             AssetDatabase.CreateAsset(material, $"{DataFolder}/{blockName}.mat");
 
-            var block = ScriptableObject.CreateInstance<BlockDefinition>();
+            var block = ScriptableObject.CreateInstance<BlockDefinitionOrdinary>();
             AssetDatabase.CreateAsset(block, $"{DataFolder}/{blockName}.asset");
 
             var serialized = new SerializedObject(block);

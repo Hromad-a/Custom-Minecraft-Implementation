@@ -50,7 +50,7 @@ namespace CustomMinecraft.Rendering
 
         public static void Build(WorldData data, WorldGenerationSettings settings, int chunkX, int chunkZ, Mesh mesh)
         {
-            IReadOnlyList<BlockDefinition> blocks = settings.Blocks;
+            IReadOnlyList<BlockDefinitionBase> blocks = settings.Blocks;
             PrepareBuffers(blocks.Count);
 
             size = data.chunkSize;
@@ -124,7 +124,7 @@ namespace CustomMinecraft.Rendering
                 TrianglesPerType[i].Clear();
         }
 
-        private static int SubmeshFor(IReadOnlyList<BlockDefinition> blocks, int typeId)
+        private static int SubmeshFor(IReadOnlyList<BlockDefinitionBase> blocks, int typeId)
         {
             for (int i = 0; i < blocks.Count; i++)
             {
