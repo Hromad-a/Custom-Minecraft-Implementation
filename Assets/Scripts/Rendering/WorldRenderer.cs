@@ -9,8 +9,7 @@ namespace CustomMinecraft.Rendering
     /// nearest-first; chunks left behind are destroyed. Meshes stay disposable
     /// derivations of <see cref="WorldData"/> — <see cref="RebuildChunkAt"/>
     /// re-derives one after a block edit. Every chunk shares the same material
-    /// array, one material per block type. Scene fog is matched to the view
-    /// distance to hide the streamed edge.
+    /// array, one material per block type.
     /// </summary>
     [RequireComponent(typeof(World))]
     public sealed class WorldRenderer : MonoBehaviour
@@ -40,7 +39,6 @@ namespace CustomMinecraft.Rendering
             if (viewer == null && Camera.main != null)
                 viewer = Camera.main.transform;
             EnsureMaterials();
-            ApplyFog();
         }
 
         private void OnDestroy()
@@ -103,7 +101,6 @@ namespace CustomMinecraft.Rendering
             buildQueue.Clear();
             dirtyChunks.Clear();
             EnsureMaterials();
-            ApplyFog();
             streamingDirty = true;
         }
 
@@ -226,17 +223,6 @@ namespace CustomMinecraft.Rendering
                 if (materials[i] == null)
                     Debug.LogError($"Block '{blocks[i].DisplayName}' has no material assigned.", blocks[i]);
             }
-        }
-
-        // Distant chunks fade into fog instead of visibly popping in at the edge
-        // of the streamed area.
-        private void ApplyFog()
-        {
-            float viewDistance = world.Settings.ViewDistance * world.Settings.ChunkSize;
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = viewDistance * 0.5f;
-            RenderSettings.fogEndDistance = viewDistance * 0.95f;
         }
     }
 }
